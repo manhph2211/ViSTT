@@ -1,0 +1,65 @@
+datasets:
+  vivos:
+    root: ../../../../input/vivos-dataset/vivos
+    n_fft: 400
+
+text_process:
+  lang: vi
+
+datamodule:
+  vivos:
+    batch_size: 16
+    num_workers: 4
+
+model:
+  num_classes: -1
+  encoder_dim: 144
+  decoder_output_dim: ${model.encoder_dim}
+  hidden_state_dim: 320
+  decoder_num_layers: 1
+  input_dim: 201 # n_fft // 2 + 1
+  num_heads: 4
+  num_layers: 16
+  conv_kernel_size: 31
+  feed_forward_expansion_factor: 4
+  conv_expansion_factor: 2
+  dropout: 0.1
+  half_step_residual: True
+  subsampling_factor: 4
+  freq_masks: 2
+  time_masks: 10
+  freq_width: 27
+  time_width: 0.05
+  rnn_type: lstm
+  sos_id: 1
+  eos_id: 2
+  grad_ckpt_batchsize: 4
+
+training:
+  lr: 0.001
+  batch_size: 4
+  max_epoch: 100
+
+optim:
+  betas: [0.9, 0.98]
+  weight_decay: 1e-3
+
+sched:
+  num_warmup_steps: 4000
+  num_training_steps: 100000
+
+tb_logger:
+  save_dir: tb_logs
+  name: conformer_logs
+
+trainer:
+  max_epochs: 5
+  enable_progress_bar: True
+  accelerator: auto
+  detect_anomaly: True
+  accumulate_grad_batches: 8
+
+ckpt:
+  have_ckpt: False
+  ckpt_path: "conformer_rnnt.ckpt"
+  train: True

@@ -48,7 +48,7 @@ if __name__ == "__main__":
                 except Exception as e:
                     print(str(e))
 
-            trainer.save_checkpoint("conformer_rnnt.ckpt", weights_only=True)
+            trainer.save_checkpoint("configs/conformer_rnnt.ckpt", weights_only=True)
 
             # export
             try:
