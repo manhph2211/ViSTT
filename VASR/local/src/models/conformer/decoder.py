@@ -1,17 +1,3 @@
-# Copyright (c) 2021, Soohwan Kim. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import torch.nn as nn
 from torch import Tensor
 from typing import Tuple
@@ -41,22 +27,23 @@ class DecoderRNNT(nn.Module):
         * hidden_states (torch.FloatTensor): A hidden state of decoder. `FloatTensor` of size
             ``(batch, seq_length, dimension)``
     """
+
     supported_rnns = {
-        'lstm': nn.LSTM,
-        'gru': nn.GRU,
-        'rnn': nn.RNN,
+        "lstm": nn.LSTM,
+        "gru": nn.GRU,
+        "rnn": nn.RNN,
     }
 
     def __init__(
-            self,
-            num_classes: int,
-            hidden_state_dim: int,
-            output_dim: int,
-            num_layers: int,
-            rnn_type: str = 'lstm',
-            sos_id: int = 1,
-            eos_id: int = 2,
-            dropout_p: float = 0.2,
+        self,
+        num_classes: int,
+        hidden_state_dim: int,
+        output_dim: int,
+        num_layers: int,
+        rnn_type: str = "lstm",
+        sos_id: int = 1,
+        eos_id: int = 2,
+        dropout_p: float = 0.1,
     ):
         super(DecoderRNNT, self).__init__()
         self.hidden_state_dim = hidden_state_dim
@@ -76,20 +63,20 @@ class DecoderRNNT(nn.Module):
         self.out_proj = nn.Linear(hidden_state_dim, output_dim)
 
     def count_parameters(self) -> int:
-        """ Count parameters of encoder """
+        """Count parameters of encoder"""
         return sum([p.numel for p in self.parameters()])
 
     def update_dropout(self, dropout_p: float) -> None:
-        """ Update dropout probability of encoder """
+        """Update dropout probability of encoder"""
         for name, child in self.named_children():
             if isinstance(child, nn.Dropout):
                 child.p = dropout_p
-        
+
     def forward(
-            self,
-            inputs: Tensor,
-            input_lengths: Tensor = None,
-            hidden_states: Tensor = None,
+        self,
+        inputs: Tensor,
+        input_lengths: Tensor = None,
+        hidden_states: Tensor = None,
     ) -> Tuple[Tensor, Tensor]:
         """
         Forward propage a `inputs` (targets) for training.
@@ -108,7 +95,9 @@ class DecoderRNNT(nn.Module):
         embedded = self.embedding(inputs)
 
         if input_lengths is not None:
-            embedded = nn.utils.rnn.pack_padded_sequence(embedded.transpose(0, 1), input_lengths.cpu())
+            embedded = nn.utils.rnn.pack_padded_sequence(
+                embedded.transpose(0, 1), input_lengths.cpu(), enforce_sorted=False
+            )
             outputs, hidden_states = self.rnn(embedded, hidden_states)
             outputs, _ = nn.utils.rnn.pad_packed_sequence(outputs)
             outputs = self.out_proj(outputs.transpose(0, 1))
