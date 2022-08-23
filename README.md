@@ -1,8 +1,9 @@
-Vietnamese Speech Recognition
+Vietnamese Speech-to-Text :smile:
 =====
 
-
 # Introduction
+
+Still updating ...
 
 # Setup
 
