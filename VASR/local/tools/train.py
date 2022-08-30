@@ -1,14 +1,15 @@
 import argparse
 from base64 import encode
 from distutils.command.config import config
-
+import sys
+sys.path.append("/content/drive/MyDrive/VASR/VASR/local")
 import pytorch_lightning as pl
 import hydra
 from omegaconf import DictConfig
 from src.utils.utils import TextProcess
 from src.datasets.dataset import VivosDataset, VivosDataModule
 from src.engine.trainer import ConformerModule
-from src.models.conformer import Conformer
+from src.models.conformer.conformer import Conformer
 
 
 if __name__ == "__main__":
@@ -22,18 +23,19 @@ if __name__ == "__main__":
     @hydra.main(config_path=args.cp, config_name=args.cn)
     def main(cfg: DictConfig):
 
-        text_process = TextProcess(**cfg.text_process)
-        cfg.model.num_classes = len(text_process.vocab)
-
+        text_process = TextProcess(cfg.text.hyper.char.lang)
+        num_classes = len(text_process.vocab)
         train_set = VivosDataset(**cfg.datasets.vivos, subset="train")
         test_set = VivosDataset(**cfg.datasets.vivos, subset="test")
 
         dm = VivosDataModule(
             train_set, test_set, text_process, **cfg.datamodule.vivos
         )
+        steps_per_epoch = len(dm.train_dataloader())
+        cfg.model.lr_scheduler.one_cycle_lr.steps_per_epoch = steps_per_epoch        
         encoder = Conformer(**cfg.model.encoder.conformer)
         model = ConformerModule(
-            encoder= encoder, n_class=cfg.model.num_classes, cfg_model = cfg.model, text_process=text_process,
+            encoder= encoder, n_class=num_classes, cfg_model = cfg.model, text_process=text_process,
         )
 
         tb_logger = pl.loggers.tensorboard.TensorBoardLogger(**cfg.trainer.tb_logger)

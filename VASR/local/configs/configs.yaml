@@ -3,31 +3,29 @@ hydra:
     dir: outputs
 
 general:
-  batch_size: 4
-  n_fft: 159 # -> output 80 filterbank for spectrogram
+  batch_size: 16
+  n_fft: 159
   lr: 0.001
   log_idx: 100
   epochs: 10
 
 text:
-  all_types:
-    - char
-    - bpe
   hyper:
     char:
       lang: vi
     bpe:
       vocab_size: 1000
       pct_bpe: 1
-  selected: char
 
-dataset:
-  all_types:
-    - vivos
-  hyper:
-    vivos:
-      root:  data/vivos
-      n_fft: ${general.n_fft}
+datasets:
+  vivos:
+    root: /content/drive/MyDrive/VASR/VASR/local/data/vivos
+    n_fft: 159
+
+datamodule:
+  vivos:
+    batch_size: 16
+    num_workers: 4
 
 model:
   encoder:

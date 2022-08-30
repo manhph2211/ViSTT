@@ -6,11 +6,13 @@ from typing import List, Dict, Tuple
 from src.losses.ctc import CTCLoss
 from src.utils.utils import TextProcess
 from src.metrics.wer import cal_wer
+import torchmetrics
 
 
 class BaseModel(pl.LightningModule):
     def __init__(self):
         super().__init__()
+        self.cal_wer = torchmetrics.WordErrorRate()
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), **self.cfg_model.optim.adamw)
@@ -29,7 +31,7 @@ class BaseModel(pl.LightningModule):
         label_sequences = list(map(self.text_process.int2text, targets))
         wer = torch.Tensor(
             [
-                cal_wer(truth, hypot)
+                self.cal_wer(truth, hypot)
                 for truth, hypot in zip(label_sequences, predict_sequences)
             ]
         )

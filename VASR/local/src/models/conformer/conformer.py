@@ -1,7 +1,7 @@
 import torch.nn as nn
 from torch import Tensor
 from typing import Tuple
-from .encoder import ConformerEncoder
+from src.models.conformer.encoder import ConformerEncoder
 from src.augs.spec_augment import SpecAugment
 
 

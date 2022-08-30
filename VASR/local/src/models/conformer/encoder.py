@@ -1,10 +1,10 @@
 import torch.nn as nn
 from torch import Tensor
-from base.ffw import FeedForwardModule
-from base.att import ConvSubsampling
-from base.att import MultiHeadedSelfAttentionModule
-from base.conv import ConformerConvModule
-from base.modules import ResidualConnectionModule
+from src.models.conformer.base.ffw import FeedForwardModule
+from src.models.conformer.base.att import ConvSubsampling
+from src.models.conformer.base.att import MultiHeadedSelfAttentionModule
+from src.models.conformer.base.conv import ConformerConvModule
+from src.models.conformer.base.modules import ResidualConnectionModule
 from typing import Tuple
 
 

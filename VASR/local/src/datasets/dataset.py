@@ -4,12 +4,7 @@ from torch.utils.data import Dataset
 from pathlib import Path
 import torchaudio
 from torch.utils.data import DataLoader, Dataset
-import torchaudio.transforms as T
-import torchaudio.functional as F
-from src.models.conformer.conformer import Conformer
 import pytorch_lightning as pl
-import torchmetrics
-import sys
 from src.utils.utils import TextProcess
 
 
@@ -100,22 +95,34 @@ class VivosDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
         )
 
+    def tokenize(self, s):
+        s = s.lower()
+        s = self.text_process.tokenize(s)
+        return s
+
     def _collate_fn(self, batch):
         """
         Take feature and input, transform and then padding it
         """
+
         specs = [i[0] for i in batch]
         input_lengths = torch.IntTensor([i.size(0) for i in specs])
         trans = [i[1] for i in batch]
-        target_lengths = torch.IntTensor([len(s) for s in trans])
+
+        bs = len(specs)
 
         # batch, time, feature
         specs = torch.nn.utils.rnn.pad_sequence(specs, batch_first=True)
-        # specs = specs.unsqueeze(1)  # batch, channel, time, feature
 
-        trans = [self.text_process.text2int(s) for s in trans]
+        trans = [self.text_process.text2int(self.tokenize(s)) for s in trans]
+        target_lengths = torch.IntTensor([s.size(0) for s in trans])
         trans = torch.nn.utils.rnn.pad_sequence(trans, batch_first=True).to(
             dtype=torch.int
         )
+
+        # concat sos and eos to transcript
+        sos_id = torch.IntTensor([[self.text_process.sos_id]]).repeat(bs, 1)
+        eos_id = torch.IntTensor([[self.text_process.eos_id]]).repeat(bs, 1)
+        trans = torch.cat((sos_id, trans, eos_id), dim=1).to(dtype=torch.int)
 
         return specs, input_lengths, trans, target_lengths
