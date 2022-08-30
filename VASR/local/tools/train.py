@@ -1,4 +1,6 @@
 import argparse
+from base64 import encode
+from distutils.command.config import config
 
 import pytorch_lightning as pl
 import hydra
@@ -6,6 +8,7 @@ from omegaconf import DictConfig
 from src.utils.utils import TextProcess
 from src.datasets.dataset import VivosDataset, VivosDataModule
 from src.engine.trainer import ConformerModule
+from src.models.conformer import Conformer
 
 
 if __name__ == "__main__":
@@ -22,44 +25,30 @@ if __name__ == "__main__":
         text_process = TextProcess(**cfg.text_process)
         cfg.model.num_classes = len(text_process.vocab)
 
-        
         train_set = VivosDataset(**cfg.datasets.vivos, subset="train")
         test_set = VivosDataset(**cfg.datasets.vivos, subset="test")
 
         dm = VivosDataModule(
             train_set, test_set, text_process, **cfg.datamodule.vivos
         )
-    
+        encoder = Conformer(**cfg.model.encoder.conformer)
         model = ConformerModule(
-            cfg, blank=text_process.list_vocab.index("<p>"), text_process=text_process,
+            encoder= encoder, n_class=cfg.model.num_classes, cfg_model = cfg.model, text_process=text_process,
         )
 
-        tb_logger = pl.loggers.tensorboard.TensorBoardLogger(**cfg.tb_logger)
+        tb_logger = pl.loggers.tensorboard.TensorBoardLogger(**cfg.trainer.tb_logger)
 
-        trainer = pl.Trainer(logger=tb_logger, **cfg.trainer)
+        trainer = pl.Trainer(logger=tb_logger, **cfg.trainer.hyper)
 
-        if cfg.ckpt.train:
-            print("Training model")
-            if cfg.ckpt.have_ckpt:
-                trainer.fit(model, datamodule=dm, ckpt_path=cfg.ckpt.ckpt_path)
-            else:
-                try:
-                    trainer.fit(model=model, datamodule=dm)
-                except Exception as e:
-                    print(str(e))
-
-            trainer.save_checkpoint("configs/conformer_rnnt.ckpt", weights_only=True)
-
-            # export
+        if cfg.ckpt.have_ckpt:
+            trainer.fit(model, datamodule=dm, ckpt_path=cfg.ckpt.ckpt_path)
+        else:
             try:
-                input_sample = next(iter(dm.train_dataloader()))
-                model.to_onnx("conformer_rnnt.onnx", input_sample, export_params=True)
+                trainer.fit(model=model, datamodule=dm)
             except Exception as e:
                 print(str(e))
 
-        else:
-            print("Train mode turn off!")
-
+        trainer.save_checkpoint("ckpts/conformer_rnnt.ckpt", weights_only=True)
         print("Testing model")
         if cfg.ckpt.have_ckpt:
             trainer.test(model, datamodule=dm, ckpt_path=cfg.ckpt.ckpt_path)

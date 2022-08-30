@@ -4,7 +4,8 @@ from base.ffw import FeedForwardModule
 from base.att import ConvSubsampling
 from base.att import MultiHeadedSelfAttentionModule
 from base.conv import ConformerConvModule
-from src.models.conformer.modules import ResidualConnectionModule
+from base.modules import ResidualConnectionModule
+from typing import Tuple
 
 
 class ConformerBlock(nn.Module):
@@ -61,7 +62,7 @@ class ConformerBlock(nn.Module):
                     d_model=encoder_dim,
                     num_heads=num_attention_heads,
                     dropout_p=attention_dropout_p,
-                ),
+                )
             ),
             ResidualConnectionModule(
                 module=ConformerConvModule(
@@ -69,7 +70,7 @@ class ConformerBlock(nn.Module):
                     kernel_size=conv_kernel_size,
                     expansion_factor=conv_expansion_factor,
                     dropout_p=conv_dropout_p,
-                ),
+                )
             ),
             ResidualConnectionModule(
                 module=FeedForwardModule(
@@ -87,54 +88,93 @@ class ConformerBlock(nn.Module):
 
 
 class ConformerEncoder(nn.Module):
+    """
+    Conformer encoder first processes the input with a convolution subsampling layer and then
+    with a number of conformer blocks.
+    Args:
+        input_dim (int, optional): Dimension of input vector
+        encoder_dim (int, optional): Dimension of conformer encoder
+        num_layers (int, optional): Number of conformer blocks
+        num_attention_heads (int, optional): Number of attention heads
+        feed_forward_expansion_factor (int, optional): Expansion factor of feed forward module
+        conv_expansion_factor (int, optional): Expansion factor of conformer convolution module
+        feed_forward_dropout_p (float, optional): Probability of feed forward module dropout
+        attention_dropout_p (float, optional): Probability of attention module dropout
+        conv_dropout_p (float, optional): Probability of conformer convolution module dropout
+        conv_kernel_size (int or tuple, optional): Size of the convolving kernel
+        half_step_residual (bool): Flag indication whether to use half step residual or not
+    Inputs: inputs, input_lengths
+        - **inputs** (batch, time, dim): Tensor containing input vector
+        - **input_lengths** (batch): list of sequence input lengths
+    Returns: outputs, output_lengths
+        - **outputs** (batch, out_channels, time): Tensor produces by conformer encoder.
+        - **output_lengths** (batch): list of sequence output lengths
+    """
+
     def __init__(
         self,
         input_dim: int = 80,
-        num_heads: int = 4,
-        encoder_dim: int = 144,
-        num_layers: int = 16,
+        encoder_dim: int = 512,
+        num_layers: int = 17,
+        num_attention_heads: int = 8,
         feed_forward_expansion_factor: int = 4,
         conv_expansion_factor: int = 2,
+        input_dropout_p: float = 0.1,
+        feed_forward_dropout_p: float = 0.1,
+        attention_dropout_p: float = 0.1,
+        conv_dropout_p: float = 0.1,
         conv_kernel_size: int = 31,
-        dropout: float = 0.1,
-        subsampling_factor: int = 4,
         half_step_residual: bool = True,
-        freq_masks: int = 2,
-        time_masks: int = 10,
-        freq_width: int = 27,
-        time_width: float = 0.05,
-        grad_ckpt_batchsize: int = 4,
     ):
-        super().__init__()
-        self.grad_ckpt_batchsize = grad_ckpt_batchsize
-
-        self.conv_subsampling = ConvSubsampling(
-            input_dim=input_dim,
-            feat_out=encoder_dim,
-            conv_channels=encoder_dim,
-            subsampling_factor=subsampling_factor,
+        super(ConformerEncoder, self).__init__()
+        self.conv_subsample = ConvSubsampling(
+            input_dim=input_dim, feat_out=encoder_dim, conv_channels=encoder_dim
         )
-        self.input_projection = nn.Sequential(
-            nn.Linear(encoder_dim, encoder_dim), nn.Dropout(p=dropout)
+        self.input_dropout = nn.Dropout(p=input_dropout_p)
+        self.layers = nn.ModuleList(
+            [
+                ConformerBlock(
+                    encoder_dim=encoder_dim,
+                    num_attention_heads=num_attention_heads,
+                    feed_forward_expansion_factor=feed_forward_expansion_factor,
+                    conv_expansion_factor=conv_expansion_factor,
+                    feed_forward_dropout_p=feed_forward_dropout_p,
+                    attention_dropout_p=attention_dropout_p,
+                    conv_dropout_p=conv_dropout_p,
+                    conv_kernel_size=conv_kernel_size,
+                    half_step_residual=half_step_residual,
+                )
+                for _ in range(num_layers)
+            ]
         )
-        module_list = [
-            ConformerBlock(
-                encoder_dim=encoder_dim,
-                num_attention_heads=num_heads,
-                feed_forward_expansion_factor=feed_forward_expansion_factor,
-                conv_expansion_factor=conv_expansion_factor,
-                feed_forward_dropout_p=dropout,
-                attention_dropout_p=dropout,
-                conv_dropout_p=dropout,
-                conv_kernel_size=conv_kernel_size,
-                half_step_residual=half_step_residual,
-            )
-            for _ in range(num_layers)
-        ]
-        self.layers = nn.Sequential(*module_list)
 
-    def forward(self, x, lengths):
-        x, lengths = self.conv_subsampling(x, lengths)
-        x = self.input_projection(x)
-        x = self.layers(x)
-        return x, lengths
+    def count_parameters(self) -> int:
+        """Count parameters of encoder"""
+        return sum([p.numel for p in self.parameters()])
+
+    def update_dropout(self, dropout_p: float) -> None:
+        """Update dropout probability of encoder"""
+        for name, child in self.named_children():
+            if isinstance(child, nn.Dropout):
+                child.p = dropout_p
+
+    def forward(self, inputs: Tensor, input_lengths: Tensor) -> Tuple[Tensor, Tensor]:
+        """
+        Forward propagate a `inputs` for  encoder training.
+        Args:
+            inputs (torch.FloatTensor): A input sequence passed to encoder. Typically for inputs this will be a padded
+                `FloatTensor` of size ``(batch, seq_length, dimension)``.
+            input_lengths (torch.LongTensor): The length of input tensor. ``(batch)``
+        Returns:
+            (Tensor, Tensor)
+            * outputs (torch.FloatTensor): A output sequence of encoder. `FloatTensor` of size
+                ``(batch, seq_length, dimension)``
+            * output_lengths (torch.LongTensor): The length of output tensor. ``(batch)``
+        """
+        outputs, output_lengths = self.conv_subsample(inputs, input_lengths)
+        outputs = self.input_dropout(outputs)
+
+        for layer in self.layers:
+            outputs = layer(outputs)
+
+        return outputs, output_lengths

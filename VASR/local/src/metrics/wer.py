@@ -2,7 +2,7 @@ from VASR.local.src.utils.utils import char_to_word
 import Levenshtein as Lev
 
 
-def wer(s1, s2):
+def cal_wer(s1, s2):
     s1 = char_to_word(s1)
     s2 = char_to_word(s2).strip()
 
