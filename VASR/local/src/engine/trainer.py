@@ -1,9 +1,9 @@
 import torch
 import torchaudio.transforms as T
-from model.conformer import Conformer
 import pytorch_lightning as pl
 import torchmetrics
-from utils import TextProcess
+from src.utils.utils import TextProcess
+from src.models.conformer.conformer import Conformer
 from transformers import get_linear_schedule_with_warmup
 
 
@@ -63,7 +63,6 @@ class ConformerModule(pl.LightningModule):
         )
 
         loss = self.cal_loss(outputs, targets, output_lengths, target_lengths)
-
         self.log("train_loss", loss)
         self.log("lr", self.lr)
 
@@ -88,11 +87,11 @@ class ConformerModule(pl.LightningModule):
         predicts = self.forward(inputs, input_lengths)
         predicts = [self.text_process.int2text(sent) for sent in predicts]
         targets = [self.text_process.int2text(sent) for sent in targets]
-
         list_wer = torch.tensor(
             [self.cal_wer(i, j).item() for i, j in zip(predicts, targets)]
         )
         wer = torch.mean(list_wer)
+        
 
         if batch_idx % 100 == 0:
             self.log_output(predicts[0], targets[0], wer)
