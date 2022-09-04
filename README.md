@@ -5,13 +5,13 @@ Vietnamese Speech-to-Text :smile:
 
 In this project, I aimed to develop an end-to-end automatic speech recognition system in which I used diffenent frameworks such as Pytorch-lightning. Flask, Docker, Uwsgi, Nginx, and AWS service to deploy and extend the project into a simple production scenario. Also, I focused on Vietnamese language but other ones are easily modified and used. 
 
-About the model, here I used several well-known ones(Deeespeech, Conformer CTC and RNN-Transducer). As usual, I'd love to write some notes about the models I used :raising_hand:. But now I don't have much time, so I update serveral days later...
+About the model, here I used several well-known ones(Deepspeech, Conformer CTC and RNN-Transducer). As usual, I'd love to write some notes about the models I used :raising_hand:. But now I don't have much time, so I update serveral days later...
 
 # Setup
 
 ## Data preparation
 
-The project used VIVOs, which is a widely-used Vietnamese public dataset. Download it and put it into `./local/data`:
+The project used [VIVOs](https://ailab.hcmus.edu.vn/vivos), which is a widely-used Vietnamese public dataset. Download it and put it into `./local/data`:
 ```
 └───VASR
     ├───local
